@@ -1,0 +1,9 @@
+Put one song in this folder, named exactly:
+
+  music.mp3
+
+If it's missing, the floating music player just stays hidden —
+nothing on the site will break.
+
+Delete this text file once you've added your song (it won't show
+up on the website either way).
