@@ -98,14 +98,19 @@ function prefersReducedMotion(){
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function fadeAudio(audioEl, from, to, duration){
+function fadeAudio(audioEl, from, to, duration, onComplete){
   if (!audioEl) return;
-  if (duration <= 0){ audioEl.volume = to; return; }
+  if (duration <= 0){
+    audioEl.volume = to;
+    if (onComplete) onComplete();
+    return;
+  }
   const start = performance.now();
   function step(now){
     const p = Math.min((now - start) / duration, 1);
     audioEl.volume = from + (to - from) * p;
     if (p < 1) requestAnimationFrame(step);
+    else if (onComplete) onComplete();
   }
   requestAnimationFrame(step);
 }
@@ -230,7 +235,7 @@ function initMemoryCarousel(){
   const nextBtn = document.getElementById("memoryNext");
   if (!carousel || !track) return;
 
-  if (prefersReducedMotion()) return; // leave it static, respect the preference
+  const reduceMotion = prefersReducedMotion();
 
   const BASE_SPEED  = 34;   // px/sec — the gentle everyday drift
   const BOOST_SPEED = 340;  // px/sec — while fast-forwarding/rewinding
@@ -248,6 +253,28 @@ function initMemoryCarousel(){
   function measure(){ half = track.scrollWidth / 2; }
   measure();
   window.addEventListener("resize", measure);
+
+  // reduced-motion: skip the continuous drift/easing loop entirely, but the
+  // cards still need to be positioned and the ‹ › buttons still need to work —
+  // clicking them just jumps straight to the next/previous card, no animation.
+  if (reduceMotion){
+    track.style.transform = `translateX(${pos}px)`;
+
+    function jump(dir){
+      if (half <= 0) measure();
+      const first = track.firstElementChild;
+      const cardWidth = first ? first.getBoundingClientRect().width : 250;
+      const gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || "0") || 0;
+      pos += dir * (cardWidth + gap);
+      if (pos <= -half) pos += half;
+      if (pos > 0) pos -= half;
+      track.style.transform = `translateX(${pos}px)`;
+    }
+
+    if (prevBtn) prevBtn.addEventListener("click", () => jump(1));
+    if (nextBtn) nextBtn.addEventListener("click", () => jump(-1));
+    return;
+  }
 
   function isPaused(){
     return hovering || carousel.classList.contains("is-paused");
@@ -510,7 +537,9 @@ function initIntro(){
   const heartHint  = document.getElementById("introHeartHint");
   const cakeSong   = document.getElementById("cakeSongAudio");
   const lightSound = new Audio("https://s3-us-west-2.amazonaws.com/s.cdpn.io/605876/match-strike-trimmed.mp3");
+  lightSound.volume = 0.55;
   const blowSound  = new Audio("https://s3-us-west-2.amazonaws.com/s.cdpn.io/605876/blow-out.mp3");
+  blowSound.volume = 0.55;
   const heroGate   = document.getElementById("heartGate");
 
   if (!introGate || !introTap || !cakeScene || !cake || !heartWrap || !heartBtn) return;
@@ -627,8 +656,9 @@ function initIntro(){
     requestAnimationFrame(() => heartWrap.classList.add("is-visible"));
 
     // the heart is here — gradually let go of the birthday song since a
-    // different song takes over the moment she taps it
-    if (cakeSong) fadeAudio(cakeSong, cakeSong.volume, 0, reduceMotion ? 0 : 2500);
+    // different song takes over the moment she taps it. Pause it once the
+    // fade finishes so it doesn't keep silently playing in the background.
+    if (cakeSong) fadeAudio(cakeSong, cakeSong.volume, 0, reduceMotion ? 0 : 2500, () => cakeSong.pause());
 
     if (reduceMotion){
       backdrop.style.transition = "none";
