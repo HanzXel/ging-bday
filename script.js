@@ -552,8 +552,14 @@ function initIntro(){
     introTap.classList.add("fade-out");
     setTimeout(() => { introTap.hidden = true; }, reduceMotion ? 0 : 500);
 
-    // this tap is our one guaranteed user gesture — start the birthday song now
+    // this tap is our one guaranteed user gesture — start the birthday song now.
+    // Always reset it to the beginning first: if the site is reopened without a
+    // full reload (e.g. a Home Screen web-app icon, or a backgrounded tab being
+    // resumed), this same <audio> element can still be sitting at the end of its
+    // last playthrough, and play() on an already-finished track is silent.
     if (cakeSong){
+      cakeSong.pause();
+      cakeSong.currentTime = 0;
       cakeSong.volume = 0;
       cakeSong.play().then(() => fadeAudio(cakeSong, 0, 0.55, reduceMotion ? 0 : 1400)).catch(() => {});
     }
